@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Klayworld â€” First Person Prototype</title>
+<title>Klayworld — First Person Prototype</title>
 <style>
   :root { color-scheme: dark; }
   html, body { margin:0; height:100%; overflow:hidden; background:#11131a; font-family:system-ui,-apple-system,Segoe UI,sans-serif; }
@@ -28,9 +28,9 @@
 <body>
 <div id="hud">
   <div id="brand"><strong>KLAYWORLD / FIELD TEST</strong><span>First-person clay environment prototype</span></div>
-  <div id="note">Original fan-made environment study<br>Procedural geometry Â· no original game assets</div>
+  <div id="note">Original fan-made environment study<br>Procedural geometry · no original game assets</div>
   <div id="crosshair"></div>
-  <div id="help"><b>W A S D</b> move Â· <b>Mouse</b> look Â· <b>Space</b> hop Â· <b>Esc</b> release mouse<br>Explore the island, follow the path, and inspect the clay-built structures.</div>
+  <div id="help"><b>W A S D</b> move · <b>Mouse</b> look · <b>Space</b> hop · <b>Esc</b> release mouse<br>Explore the island, follow the path, and inspect the clay-built structures.</div>
   <div id="start">
     <div id="panel">
       <h1>KLAYWORLD</h1>
@@ -209,7 +209,7 @@ for(let i=0;i<5;i++) blob(-10.4+i*1.2,1.25,8.18,.22,.18,.18,cream,.02);
 tower(-16,-3,6.6,brick);
 arch(-16, -4.65, .7, ochre);
 
-// A crooked record hall with tall columns and a readable monumental faÃ§ade
+// A crooked record hall with tall columns and a readable monumental façade
 box(1,2.1,-12,12,4.1,4.8,brick);
 box(1,4.4,-12,13,0.6,5.5,ochre);
 box(1,4.85,-12,11.5,.28,4.8,pale);
@@ -285,7 +285,7 @@ const enter=document.getElementById('enter');
 const solidZones = [
   {x:-8,z:5,rx:3.25,rz:2.9,name:'Ring House',text:'A rounded, hand-shaped clay building with a deep, dark entrance.'},
   {x:-16,z:-3,rx:1.55,rz:1.55,name:'Old Tower',text:'A narrow clay tower with a heavy cap and a dark inset window.'},
-  {x:1,z:-12,rx:5.8,rz:2.2,name:'Hall of Records',text:'The monumental Hall of Records; the faÃ§ade hints at a much larger archive.'},
+  {x:1,z:-12,rx:5.8,rz:2.2,name:'Hall of Records',text:'The monumental Hall of Records; the façade hints at a much larger archive.'},
   {x:22,z:13,rx:3.4,rz:3.0,name:'Hilltop Monument',text:'A strange stack of differently coloured clay forms.'}
 ];
 const hint = document.createElement('div');
@@ -308,7 +308,7 @@ document.addEventListener('keydown',e=>{
   if(['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code))e.preventDefault();
   if(e.code==='Space'&&player.grounded){player.vy=6.8;player.grounded=false;}
   if(e.code==='KeyE' && nearbyLandmark) {
-    hint.textContent = nearbyLandmark.name + ' â€” ' + nearbyLandmark.text;
+    hint.textContent = nearbyLandmark.name + ' — ' + nearbyLandmark.text;
     hint.style.display = 'block';
   }
 });
