@@ -78,6 +78,46 @@ const clay = mat('clay', 0xb9a17b), pale = mat('pale',0xd5c29a), cream=mat('crea
 const groundMat = mat('ground',0x9e9b78);
 const world = new THREE.Group(); scene.add(world);
 
+// Lightweight procedural clay surface texture, generated locally.
+function makeClayTexture() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 256;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#b8a27f';
+  ctx.fillRect(0, 0, 256, 256);
+  let seed = 731;
+  const rand = () => {
+    seed = (seed * 1664525 + 1013904223) >>> 0;
+    return seed / 4294967296;
+  };
+  for (let i = 0; i < 6500; i++) {
+    const x = rand() * 256, y = rand() * 256;
+    const r = 0.25 + rand() * 1.6;
+    ctx.fillStyle = rand() > 0.5 ? 'rgba(255,242,210,0.10)' : 'rgba(70,48,32,0.10)';
+    ctx.beginPath();
+    ctx.ellipse(x, y, r * (1.4 + rand()), r * 0.55, rand() * 3.14, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  for (let i = 0; i < 90; i++) {
+    const x = rand() * 256, y = rand() * 256;
+    ctx.strokeStyle = rand() > 0.5 ? 'rgba(245,225,190,0.15)' : 'rgba(75,54,38,0.10)';
+    ctx.lineWidth = 0.5 + rand() * 1.1;
+    ctx.beginPath();
+    ctx.ellipse(x, y, 2 + rand() * 7, 0.8 + rand() * 1.4, rand() * 3.14, 0, Math.PI * 1.3);
+    ctx.stroke();
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(2, 2);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+const clayTexture = makeClayTexture();
+for (const material of Object.values(mats)) {
+  material.map = clayTexture;
+  material.needsUpdate = true;
+}
+
 function mesh(geo, material, x,y,z, parent=world) {
   const o=new THREE.Mesh(geo,material); o.position.set(x,y,z); o.castShadow=true; o.receiveShadow=true; parent.add(o); return o;
 }
@@ -244,6 +284,16 @@ const keys={};
 let locked=false;
 const start=document.getElementById('start');
 const enter=document.getElementById('enter');
+const solidZones = [
+  {x:-8,z:5,rx:3.25,rz:2.9,name:'Ring House',text:'A rounded, hand-shaped clay building with a deep, dark entrance.'},
+  {x:-16,z:-3,rx:1.55,rz:1.55,name:'Old Tower',text:'A narrow clay tower with a heavy cap and a dark inset window.'},
+  {x:1,z:-12,rx:5.8,rz:2.2,name:'Hall of Records',text:'The monumental Hall of Records; the façade hints at a much larger archive.'},
+  {x:22,z:13,rx:3.4,rz:3.0,name:'Hilltop Monument',text:'A strange stack of differently coloured clay forms.'}
+];
+const hint = document.createElement('div');
+hint.style.cssText = 'position:fixed;left:50%;top:58%;transform:translateX(-50%);max-width:min(420px,85vw);padding:10px 14px;border:1px solid #ffffff40;border-radius:10px;background:#171923e8;color:#f7f1df;font:12px/1.5 system-ui;display:none;pointer-events:none;z-index:5;text-align:center';
+document.body.appendChild(hint);
+let nearbyLandmark = null;
 enter.addEventListener('click',()=>renderer.domElement.requestPointerLock());
 document.addEventListener('pointerlockchange',()=>{
   locked=document.pointerLockElement===renderer.domElement;
@@ -259,6 +309,10 @@ document.addEventListener('keydown',e=>{
   keys[e.code]=true;
   if(['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code))e.preventDefault();
   if(e.code==='Space'&&player.grounded){player.vy=6.8;player.grounded=false;}
+  if(e.code==='KeyE' && nearbyLandmark) {
+    hint.textContent = nearbyLandmark.name + ' — ' + nearbyLandmark.text;
+    hint.style.display = 'block';
+  }
 });
 document.addEventListener('keyup',e=>keys[e.code]=false);
 document.addEventListener('click',()=>{if(!locked && start.style.display==='none')renderer.domElement.requestPointerLock();});
@@ -273,7 +327,29 @@ function update(dt){
   if(keys.KeyD||keys.ArrowRight)move.add(right);
   if(keys.KeyA||keys.ArrowLeft)move.sub(right);
   if(move.lengthSq()>0)move.normalize().multiplyScalar((keys.ShiftLeft?10:5.6)*dt);
-  player.pos.add(move);
+  const oldX = player.pos.x, oldZ = player.pos.z;
+  player.pos.x += move.x;
+  for (const zone of solidZones) {
+    const dx = player.pos.x - zone.x, dz = player.pos.z - zone.z;
+    if (Math.abs(dx) < zone.rx + 0.38 && Math.abs(dz) < zone.rz + 0.38) player.pos.x = oldX;
+  }
+  player.pos.z += move.z;
+  for (const zone of solidZones) {
+    const dx = player.pos.x - zone.x, dz = player.pos.z - zone.z;
+    if (Math.abs(dx) < zone.rx + 0.38 && Math.abs(dz) < zone.rz + 0.38) player.pos.z = oldZ;
+  }
+  nearbyLandmark = null;
+  let nearest = 4.2;
+  for (const zone of solidZones) {
+    const d = Math.hypot(player.pos.x - zone.x, player.pos.z - zone.z);
+    if (d < nearest) { nearest = d; nearbyLandmark = zone; }
+  }
+  if (nearbyLandmark && hint.style.display !== 'block') {
+    hint.textContent = 'Press E to inspect: ' + nearbyLandmark.name;
+    hint.style.display = 'block';
+  } else if (!nearbyLandmark) {
+    hint.style.display = 'none';
+  }
   player.vy-=16*dt; player.pos.y+=player.vy*dt;
   if(player.pos.y<2.05){player.pos.y=2.05;player.vy=0;player.grounded=true;}
   // Keep the player on the broad floating island.
