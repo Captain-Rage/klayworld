@@ -3,10 +3,12 @@
 A small browser-based 3D walking prototype inspired by the handmade clay environments of classic clay-animation adventure games.
 
 ## Run
-1. Open `index.html` in a current desktop browser.
-2. If your browser blocks ES-module imports from local files, run a local static server in this folder:
-   - Python: `python -m http.server 8000`
-   - Then open `http://localhost:8000`
+1. Install and start a local static server:
+   - `npm install`
+   - `npm start`
+   - Then open `http://localhost:3000`
+   - Alternative without npm: `python -m http.server 8000` → `http://localhost:8000`
+2. Open `index.html` directly in a desktop browser if your browser allows ES-module imports from local files.
 3. Click **ENTER THE WORLD**.
 
 An internet connection is needed to load Three.js from jsDelivr.

@@ -1,0 +1,14 @@
+{
+  "name": "klayworld",
+  "version": "0.1.0",
+  "private": true,
+  "description": "First-person walkable clay environment prototype inspired by The Neverhood",
+  "type": "module",
+  "scripts": {
+    "start": "serve .",
+    "dev": "serve ."
+  },
+  "devDependencies": {
+    "serve": "^14.2.4"
+  }
+}
