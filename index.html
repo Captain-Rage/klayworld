@@ -95,7 +95,7 @@ function makeReliefTexture() {
   for (let i = 0; i < 1100; i++) {
     const x = rand() * 128, y = rand() * 128;
     const r = 0.25 + rand() * 0.9;
-    const v = Math.round(128 + (rand() - 0.5) * 22);
+    const v = Math.round(128 + (rand() - 0.5) * 120);
     ctx.fillStyle = `rgb(${v},${v},${v})`;
     ctx.beginPath();
     ctx.ellipse(x, y, r * (1.4 + rand()), r * 0.6, rand() * 3.14, 0, Math.PI * 2);
@@ -107,11 +107,12 @@ function makeReliefTexture() {
   return tex;
 }
 const reliefTexture = makeReliefTexture();
-// Low amplitude is intentional; the relief should be felt in grazing light, not read as paint.
+// Kept as grayscale plane-covering relief; amplitude and scale tuned so the dappling
+// reads clearly on the clay and brick while still staying understated.
 groundMat.bumpMap = reliefTexture;
-groundMat.bumpScale = 0.045;
+groundMat.bumpScale = 1.1;
 brick.bumpMap = reliefTexture;
-brick.bumpScale = 0.025;
+brick.bumpScale = 0.75;
 groundMat.needsUpdate = true;
 brick.needsUpdate = true;
 
