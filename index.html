@@ -288,8 +288,6 @@ function animate(){
   requestAnimationFrame(animate);
   const dt=Math.min(clock.getDelta(),.035);
   update(dt);
-  // Gentle moving highlights help the world feel photographed rather than synthetic.
-  water.material.roughness=.35;
   renderer.render(scene,camera);
 }
 animate();
