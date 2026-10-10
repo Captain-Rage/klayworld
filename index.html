@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Klayworld — First Person Prototype</title>
+<style>
+  :root { color-scheme: dark; }
+  html, body { margin:0; height:100%; overflow:hidden; background:#11131a; font-family:system-ui,-apple-system,Segoe UI,sans-serif; }
+  canvas { display:block; width:100%; height:100%; }
+  #hud { position:fixed; inset:0; pointer-events:none; color:#f7f1df; }
+  #brand { position:absolute; top:18px; left:20px; padding:10px 13px; border:1px solid #ffffff35; border-radius:12px; background:#171923aa; backdrop-filter:blur(8px); }
+  #brand strong { display:block; letter-spacing:.13em; font-size:12px; }
+  #brand span { display:block; margin-top:4px; color:#c9c7c0; font-size:11px; }
+  #help { position:absolute; left:50%; bottom:20px; transform:translateX(-50%); width:min(620px,calc(100% - 30px)); box-sizing:border-box; text-align:center; padding:12px 16px; border:1px solid #ffffff30; border-radius:14px; background:#171923c9; backdrop-filter:blur(10px); font-size:12px; line-height:1.55; }
+  #help b { color:#fff0bd; }
+  #crosshair { position:absolute; left:50%; top:50%; width:5px; height:5px; transform:translate(-50%,-50%); border-radius:50%; background:#fff7dc; box-shadow:0 0 0 2px #1a172099; }
+  #start { pointer-events:auto; position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:radial-gradient(ellipse at center,#202431a8,#101117e8); }
+  #panel { width:min(460px,calc(100% - 42px)); padding:28px; border-radius:18px; border:1px solid #ffffff35; background:#171923ed; box-shadow:0 22px 90px #0008; }
+  #panel h1 { margin:0 0 8px; font-size:25px; letter-spacing:.06em; }
+  #panel p { color:#d0d0c9; font-size:13px; line-height:1.65; }
+  #panel button { border:0; border-radius:10px; background:#d9c59a; color:#27231d; font-weight:750; padding:12px 17px; cursor:pointer; margin-top:8px; }
+  #panel button:hover { background:#f1dfb5; }
+  #note { position:absolute; right:18px; top:20px; color:#d8d5c9; font-size:11px; text-align:right; text-shadow:0 1px 4px #000; }
+  @media(max-width:600px) { #note { display:none; } #help { font-size:11px; } }
+</style>
+</head>
+<body>
+<div id="hud">
+  <div id="brand"><strong>KLAYWORLD / FIELD TEST</strong><span>First-person clay environment prototype</span></div>
+  <div id="note">Original fan-made environment study<br>Procedural geometry · no original game assets</div>
+  <div id="crosshair"></div>
+  <div id="help"><b>W A S D</b> move · <b>Mouse</b> look · <b>Space</b> hop · <b>Esc</b> release mouse<br>Explore the island, follow the path, and inspect the clay-built structures.</div>
+  <div id="start">
+    <div id="panel">
+      <h1>KLAYWORLD</h1>
+      <p>A small walkable environment study inspired by the tactile, handmade world-building of classic clay animation games.</p>
+      <p><b>Controls</b><br>WASD to move, mouse to look, Space to hop, Esc to pause. Click below to enter pointer-lock first-person mode.</p>
+      <button id="enter">ENTER THE WORLD</button>
+      <p style="font-size:11px;margin-bottom:0">Requires an internet connection to load Three.js from its CDN. Best on desktop with a mouse.</p>
+    </div>
+  </div>
+</div>
+<script type="module">
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xb7c8cc);
+scene.fog = new THREE.Fog(0xb7c8cc, 45, 150);
+const camera = new THREE.PerspectiveCamera(74, innerWidth/innerHeight, 0.1, 220);
+camera.position.set(0, 2.1, 16);
+const renderer = new THREE.WebGLRenderer({antialias:true, powerPreference:'high-performance'});
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 1.8));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.12;
+document.body.appendChild(renderer.domElement);
+
+scene.add(new THREE.HemisphereLight(0xe9f1eb, 0x5c4a42, 2.1));
+const sun = new THREE.DirectionalLight(0xffe4b6, 3.1);
+sun.position.set(-24, 38, 15); sun.castShadow = true;
+sun.shadow.mapSize.set(2048,2048);
+sun.shadow.camera.left=-48; sun.shadow.camera.right=48; sun.shadow.camera.top=48; sun.shadow.camera.bottom=-48;
+scene.add(sun);
+
+const mats = {};
+function mat(name, color, roughness=0.94) {
+  if (!mats[name]) mats[name] = new THREE.MeshStandardMaterial({color, roughness, metalness:0});
+  return mats[name];
+}
+const clay = mat('clay', 0xb9a17b), pale = mat('pale',0xd5c29a), cream=mat('cream',0xe6d7b6),
+      ochre=mat('ochre',0x9e7049), dark=mat('dark',0x4c4a49), blue=mat('blue',0x637e82),
+      moss=mat('moss',0x78816a), grass=mat('grass',0x9ca17c), water=mat('water',0x719da1,0.35),
+      pink=mat('pink',0xb77d7c), brick=mat('brick',0x9a6d59), purple=mat('purple',0x786d82);
+const groundMat = mat('ground',0x9e9b78);
+const world = new THREE.Group(); scene.add(world);
+
+function mesh(geo, material, x,y,z, parent=world) {
+  const o=new THREE.Mesh(geo,material); o.position.set(x,y,z); o.castShadow=true; o.receiveShadow=true; parent.add(o); return o;
+}
+function blob(x,y,z,sx,sy,sz,material=clay, rough=0.12) {
+  const g=new THREE.SphereGeometry(1,18,14);
+  const o=mesh(g,material,x,y,z); o.scale.set(sx,sy,sz);
+  const p=o.geometry.attributes.position;
+  for(let i=0;i<p.count;i++){
+    const xx=p.getX(i), yy=p.getY(i), zz=p.getZ(i);
+    const n=1+rough*(Math.sin(xx*13+yy*5)*Math.sin(zz*11+xx*7));
+    p.setXYZ(i,xx*n,yy*n,zz*n);
+  }
+  o.geometry.computeVertexNormals(); return o;
+}
+function box(x,y,z,sx,sy,sz,material=clay, parent=world) {
+  const o=mesh(new THREE.BoxGeometry(sx,sy,sz),material,x,y,z,parent);
+  return o;
+}
+function cylinder(x,y,z,rt,rb,h,material=clay, seg=16) {
+  return mesh(new THREE.CylinderGeometry(rt,rb,h,seg,2),material,x,y,z);
+}
+function path(points, radius, material) {
+  for(let i=0;i<points.length-1;i++){
+    const a=new THREE.Vector3(...points[i]), b=new THREE.Vector3(...points[i+1]);
+    const d=b.clone().sub(a), mid=a.clone().add(b).multiplyScalar(.5);
+    const o=mesh(new THREE.CylinderGeometry(radius*0.92,radius,d.length(),10),material,mid.x,mid.y,mid.z);
+    o.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),d.normalize());
+  }
+}
+function arch(x,z,scale=1, material=ochre) {
+  // Sculpted doorway ring made from joined rounded segments.
+  const group=new THREE.Group(); world.add(group); group.position.set(x,0,z); group.scale.setScalar(scale);
+  const left=mesh(new THREE.CapsuleGeometry(.42,.95,5,10),material,-1.05,1.15,0,group);
+  const right=mesh(new THREE.CapsuleGeometry(.42,.95,5,10),material,1.05,1.15,0,group);
+  const top=mesh(new THREE.TorusGeometry(1.05,.38,10,24,Math.PI),material,0,2.05,0,group);
+  top.rotation.z=Math.PI;
+  box(0,.15,0,2.5,.3,.75,material,group);
+}
+function tower(x,z,h=7, material=clay) {
+  // slightly lumpy handmade tower, with a cap and inset windows
+  const base=blob(x,h*.42,z,1.65,h*.44,1.55,material,.035);
+  base.scale.y=1;
+  cylinder(x,h*.86,z,1.35,1.58,.42,ochre,18);
+  blob(x,h+0.08,z,1.2,.35,1.2,pale,.06);
+  box(x,h*.58,z+1.47,.42,.95,.14,dark);
+  box(x,h*.58,z+1.55,.2,.72,.08,blue);
+  for(let i=0;i<3;i++) blob(x-1.15+i*1.15, h*.15+0.2, z+1.15,.12,.12,.12,cream,.02);
+}
+function pipeRun(points, r=.34, material=dark) { path(points,r,material); }
+function mushroomTree(x,z,scale=1) {
+  cylinder(x,1.35*scale,z,.45*scale,.58*scale,2.7*scale,ochre,12);
+  blob(x,3.15*scale,z,2.05*scale,.82*scale,1.7*scale,moss,.1);
+  blob(x-.85*scale,3.25*scale,z+.1,1.05*scale,.62*scale,1.05*scale,grass,.1);
+  blob(x+.95*scale,3.28*scale,z-.05,1.1*scale,.65*scale,1.0*scale,grass,.1);
+}
+function pebble(x,y,z,s,material=ochre){const o=blob(x,y,z,s,s*.6,s*.8,material,.16);o.rotation.y=Math.random()*3;}
+function makeIsland() {
+  // Broad hand-formed platform, rimmed with irregular lumps.
+  const base=mesh(new THREE.CylinderGeometry(39,35,4.2,48,4),groundMat,0,-2.4,0);
+  const p=base.geometry.attributes.position;
+  for(let i=0;i<p.count;i++){
+    const x=p.getX(i), z=p.getZ(i), y=p.getY(i);
+    const edge=Math.max(0,(Math.hypot(x,z)-27)/12);
+    p.setY(i,y + Math.sin(x*.31+z*.17)*.25 + edge*Math.sin(x*.7-z*.4)*.5);
+  }
+  base.geometry.computeVertexNormals();
+  // soft clay lumps around the island edge
+  for(let i=0;i<64;i++){
+    const a=i/64*Math.PI*2, r=32+Math.sin(i*3.7)*2.2;
+    blob(Math.cos(a)*r,-.5+Math.sin(i*1.8)*.7,Math.sin(a)*r,1.3+Math.random()*1.8,1.0+Math.random()*1.5,1.5+Math.random()*1.4,i%4===0?moss:groundMat,.08);
+  }
+  // lake/pond with lumpy shore
+  const pond=mesh(new THREE.CylinderGeometry(8.4,8.8,.25,40,1),water,10,-.08,-9);
+  pond.scale.set(1.3,1,0.76);
+  for(let i=0;i<30;i++){
+    const a=i/30*Math.PI*2, r=9.4+Math.sin(i*4)*.35;
+    pebble(10+Math.cos(a)*r,.02,-9+Math.sin(a)*r,.35+Math.random()*.45,i%2?ochre:pale);
+  }
+  // main path across the island
+  path([[-2,.05,17],[-1,.05,11],[2,.05,6],[1,.05,1],[5,.05,-4],[9,.05,-8]],1.35,ochre);
+  path([[1,.06,1],[-4,.06,-4],[-9,.06,-9],[-14,.06,-13]],.9,pale);
+}
+makeIsland();
+
+// Ring House: round, slightly leaning clay building
+blob(-8,2.1,5,4.0,2.7,3.6,clay,.04);
+blob(-8,4.45,5,3.4,.55,3.15,ochre,.06);
+blob(-8,4.72,5,2.7,.36,2.6,pale,.06);
+arch(-8,1.65,.95,dark);
+for(let i=0;i<5;i++) blob(-10.4+i*1.2,1.25,8.18,.22,.18,.18,cream,.02);
+tower(-16,-3,6.6,brick);
+arch(-16, -4.65, .7, ochre);
+
+// A crooked record hall with tall columns and a readable monumental façade
+box(1,2.1,-12,12,4.1,4.8,brick);
+box(1,4.4,-12,13,0.6,5.5,ochre);
+box(1,4.85,-12,11.5,.28,4.8,pale);
+for(let i=0;i<7;i++){
+  const x=-4.2+i*1.72;
+  cylinder(x,2.0,-9.42,.35,.43,3.5,pale,12);
+  blob(x,3.9,-9.42,.53,.28,.5,ochre,.05);
+  box(x,1.8,-9.1,.46,1.25,.16,dark);
+}
+box(1,5.35,-12,3.5,.35,1.4,cream);
+for(let i=0;i<5;i++) blob(-3+i*2,5.55,-12,.22,.22,.22,pink,.02);
+
+// Large pipe structures: deliberately odd and sculptural.
+pipeRun([[5,.4,12],[5,2.5,12],[5,3.2,10],[8,3.2,10],[8,1.4,8]],.38,dark);
+for(const [x,y,z] of [[5,2.5,12],[8,3.2,10],[8,1.4,8]]) blob(x,y,z,.52,.52,.52,ochre,.08);
+pipeRun([[13,.4,1],[13,4,1],[15,4,1],[15,4,-2],[12,4,-2]],.42,purple);
+for(let i=0;i<4;i++) cylinder(13,1+i*.8,1,.55,.55,.16,ochre,12);
+
+// Tree world and odd boulders
+mushroomTree(18,-12,1.2); mushroomTree(23,-5,.9); mushroomTree(-21,-14,1.05);
+for(let i=0;i<26;i++){
+  const x=-24+Math.random()*48, z=-22+Math.random()*42;
+  if(Math.hypot(x,z)<12 || (x>0&&z<-2&&z>-18)) continue;
+  pebble(x,.35,z,.25+Math.random()*.7,i%3===0?moss:(i%3===1?ochre:pale));
+}
+
+// A raised stone bridge across the pond's edge
+for(let i=0;i<9;i++){
+  const x=1.5+i*1.15, z=-3.5-i*.25;
+  const b=box(x,.65,z,1.3,.55,2.1,i%2?ochre:pale);
+  b.rotation.y=-.15;
+}
+for(const side of [-1,1]){
+  for(let i=0;i<7;i++) blob(2+i*1.3,.95,-4-i*.25+side*1.15,.15,.18,.15,dark,.03);
+}
+
+// A tiny strange monument on a hill
+blob(22,1.0,13,4.3,1.5,3.7,ochre,.1);
+cylinder(22,3.1,13,.85,1.15,3.2,brick,14);
+blob(22,4.9,13,1.6,.7,1.4,pale,.08);
+blob(22,5.5,13,.75,.45,.75,pink,.08);
+for(let i=0;i<6;i++) pebble(20+i*.8,.15,15,.25,cream);
+
+// Floating distant islands to establish a strange horizon
+for(let i=0;i<8;i++){
+  const a=i/8*Math.PI*2, x=Math.cos(a)*65, z=Math.sin(a)*65;
+  const b=mesh(new THREE.CylinderGeometry(7,4,3,16,2),i%2?moss:ochre,x,-12+Math.sin(i)*3,z);
+  b.rotation.z=Math.sin(i*2)*.1;
+  blob(x,-10,z,5,1.1,5,i%2?groundMat:brick,.08);
+  if(i%2===0) cylinder(x,-7,z,.3,.7,5,ochre,10);
+}
+
+// Low foggy horizon backdrop with abstract distant clay stacks
+for(let i=0;i<30;i++){
+  const a=Math.random()*Math.PI*2, r=78+Math.random()*20, x=Math.cos(a)*r, z=Math.sin(a)*r;
+  blob(x,-1+Math.random()*5,z,2+Math.random()*4,4+Math.random()*8,2+Math.random()*4,i%3?purple:brick,.06);
+}
+
+// Add visible thumbprint-like dimples to some nearby clay surfaces as sculptural detail
+for(let i=0;i<55;i++){
+  const x=-22+Math.random()*44, z=-20+Math.random()*34;
+  if(Math.hypot(x,z)<9) continue;
+  const d=blob(x,.12,z,.07,.035,.07,i%2?ochre:pale,.01);
+  d.rotation.y=Math.random()*Math.PI;
+}
+
+// First person controller
+const player={pos:new THREE.Vector3(0,2.05,16), yaw:Math.PI, pitch:0, vy:0, grounded:false};
+const keys={};
+let locked=false;
+const start=document.getElementById('start');
+const enter=document.getElementById('enter');
+enter.addEventListener('click',()=>renderer.domElement.requestPointerLock());
+document.addEventListener('pointerlockchange',()=>{
+  locked=document.pointerLockElement===renderer.domElement;
+  start.style.display=locked?'none':'flex';
+});
+document.addEventListener('mousemove',e=>{
+  if(!locked)return;
+  player.yaw-=e.movementX*.0022;
+  player.pitch-=e.movementY*.002;
+  player.pitch=Math.max(-1.35,Math.min(1.35,player.pitch));
+});
+document.addEventListener('keydown',e=>{
+  keys[e.code]=true;
+  if(['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code))e.preventDefault();
+  if(e.code==='Space'&&player.grounded){player.vy=6.8;player.grounded=false;}
+});
+document.addEventListener('keyup',e=>keys[e.code]=false);
+document.addEventListener('click',()=>{if(!locked && start.style.display==='none')renderer.domElement.requestPointerLock();});
+const clock=new THREE.Clock();
+const raycaster=new THREE.Raycaster();
+function update(dt){
+  const forward=new THREE.Vector3(-Math.sin(player.yaw),0,-Math.cos(player.yaw));
+  const right=new THREE.Vector3(Math.cos(player.yaw),0,-Math.sin(player.yaw));
+  const move=new THREE.Vector3();
+  if(keys.KeyW||keys.ArrowUp)move.add(forward);
+  if(keys.KeyS||keys.ArrowDown)move.sub(forward);
+  if(keys.KeyD||keys.ArrowRight)move.add(right);
+  if(keys.KeyA||keys.ArrowLeft)move.sub(right);
+  if(move.lengthSq()>0)move.normalize().multiplyScalar((keys.ShiftLeft?10:5.6)*dt);
+  player.pos.add(move);
+  player.vy-=16*dt; player.pos.y+=player.vy*dt;
+  if(player.pos.y<2.05){player.pos.y=2.05;player.vy=0;player.grounded=true;}
+  // Keep the player on the broad floating island.
+  const rr=Math.hypot(player.pos.x,player.pos.z);
+  if(rr>33.8){player.pos.x*=33.8/rr;player.pos.z*=33.8/rr;}
+  camera.position.copy(player.pos);
+  camera.rotation.order='YXZ';
+  camera.rotation.y=player.yaw;
+  camera.rotation.x=player.pitch;
+}
+function animate(){
+  requestAnimationFrame(animate);
+  const dt=Math.min(clock.getDelta(),.035);
+  update(dt);
+  // Gentle moving highlights help the world feel photographed rather than synthetic.
+  water.material.roughness=.35;
+  renderer.render(scene,camera);
+}
+animate();
+addEventListener('resize',()=>{
+  camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth,innerHeight);
+});
+</script>
+</body>
+</html>
