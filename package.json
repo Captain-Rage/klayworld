@@ -6,7 +6,8 @@
   "type": "module",
   "scripts": {
     "start": "serve .",
-    "dev": "serve ."
+    "dev": "serve .",
+    "build": "echo \"static site - nothing to build\""
   },
   "devDependencies": {
     "serve": "^14.2.4"
