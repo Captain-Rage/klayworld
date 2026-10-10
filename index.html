@@ -1,9 +1,9 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Klayworld — First Person Prototype</title>
+<title>Klayworld â€” First Person Prototype</title>
 <style>
   :root { color-scheme: dark; }
   html, body { margin:0; height:100%; overflow:hidden; background:#11131a; font-family:system-ui,-apple-system,Segoe UI,sans-serif; }
@@ -28,9 +28,9 @@
 <body>
 <div id="hud">
   <div id="brand"><strong>KLAYWORLD / FIELD TEST</strong><span>First-person clay environment prototype</span></div>
-  <div id="note">Original fan-made environment study<br>Procedural geometry · no original game assets</div>
+  <div id="note">Original fan-made environment study<br>Procedural geometry Â· no original game assets</div>
   <div id="crosshair"></div>
-  <div id="help"><b>W A S D</b> move · <b>Mouse</b> look · <b>Space</b> hop · <b>Esc</b> release mouse<br>Explore the island, follow the path, and inspect the clay-built structures.</div>
+  <div id="help"><b>W A S D</b> move Â· <b>Mouse</b> look Â· <b>Space</b> hop Â· <b>Esc</b> release mouse<br>Explore the island, follow the path, and inspect the clay-built structures.</div>
   <div id="start">
     <div id="panel">
       <h1>KLAYWORLD</h1>
@@ -56,11 +56,12 @@ renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.12;
+renderer.toneMappingExposure = 1.0;
 document.body.appendChild(renderer.domElement);
 
-scene.add(new THREE.HemisphereLight(0xe9f1eb, 0x5c4a42, 2.1));
-const sun = new THREE.DirectionalLight(0xffe4b6, 3.1);
+// Soft ambient fill keeps shadows readable without flattening the sculpted forms.
+scene.add(new THREE.HemisphereLight(0xe9f1eb, 0x5c4a42, 1.45));
+const sun = new THREE.DirectionalLight(0xffe4b6, 2.6);
 sun.position.set(-24, 38, 15); sun.castShadow = true;
 sun.shadow.mapSize.set(2048,2048);
 sun.shadow.camera.left=-48; sun.shadow.camera.right=48; sun.shadow.camera.top=48; sun.shadow.camera.bottom=-48;
@@ -78,45 +79,41 @@ const clay = mat('clay', 0xb9a17b), pale = mat('pale',0xd5c29a), cream=mat('crea
 const groundMat = mat('ground',0x9e9b78);
 const world = new THREE.Group(); scene.add(world);
 
-// Lightweight procedural clay surface texture, generated locally.
-function makeClayTexture() {
+// Subtle monochrome relief: use only where a slightly rough, worked surface helps.
+// Most clay stays untextured so smooth rounded forms read through light and silhouette.
+function makeReliefTexture() {
   const c = document.createElement('canvas');
-  c.width = c.height = 256;
+  c.width = c.height = 128;
   const ctx = c.getContext('2d');
-  ctx.fillStyle = '#b8a27f';
-  ctx.fillRect(0, 0, 256, 256);
+  ctx.fillStyle = '#808080';
+  ctx.fillRect(0, 0, 128, 128);
   let seed = 731;
   const rand = () => {
     seed = (seed * 1664525 + 1013904223) >>> 0;
     return seed / 4294967296;
   };
-  for (let i = 0; i < 6500; i++) {
-    const x = rand() * 256, y = rand() * 256;
-    const r = 0.25 + rand() * 1.6;
-    ctx.fillStyle = rand() > 0.5 ? 'rgba(255,242,210,0.10)' : 'rgba(70,48,32,0.10)';
+  for (let i = 0; i < 1100; i++) {
+    const x = rand() * 128, y = rand() * 128;
+    const r = 0.25 + rand() * 0.9;
+    const v = Math.round(128 + (rand() - 0.5) * 22);
+    ctx.fillStyle = `rgb(${v},${v},${v})`;
     ctx.beginPath();
-    ctx.ellipse(x, y, r * (1.4 + rand()), r * 0.55, rand() * 3.14, 0, Math.PI * 2);
+    ctx.ellipse(x, y, r * (1.4 + rand()), r * 0.6, rand() * 3.14, 0, Math.PI * 2);
     ctx.fill();
-  }
-  for (let i = 0; i < 90; i++) {
-    const x = rand() * 256, y = rand() * 256;
-    ctx.strokeStyle = rand() > 0.5 ? 'rgba(245,225,190,0.15)' : 'rgba(75,54,38,0.10)';
-    ctx.lineWidth = 0.5 + rand() * 1.1;
-    ctx.beginPath();
-    ctx.ellipse(x, y, 2 + rand() * 7, 0.8 + rand() * 1.4, rand() * 3.14, 0, Math.PI * 1.3);
-    ctx.stroke();
   }
   const tex = new THREE.CanvasTexture(c);
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-  tex.repeat.set(2, 2);
-  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.repeat.set(3, 3);
   return tex;
 }
-const clayTexture = makeClayTexture();
-for (const material of Object.values(mats)) {
-  material.map = clayTexture;
-  material.needsUpdate = true;
-}
+const reliefTexture = makeReliefTexture();
+// Low amplitude is intentional; the relief should be felt in grazing light, not read as paint.
+groundMat.bumpMap = reliefTexture;
+groundMat.bumpScale = 0.045;
+brick.bumpMap = reliefTexture;
+brick.bumpScale = 0.025;
+groundMat.needsUpdate = true;
+brick.needsUpdate = true;
 
 function mesh(geo, material, x,y,z, parent=world) {
   const o=new THREE.Mesh(geo,material); o.position.set(x,y,z); o.castShadow=true; o.receiveShadow=true; parent.add(o); return o;
@@ -211,7 +208,7 @@ for(let i=0;i<5;i++) blob(-10.4+i*1.2,1.25,8.18,.22,.18,.18,cream,.02);
 tower(-16,-3,6.6,brick);
 arch(-16, -4.65, .7, ochre);
 
-// A crooked record hall with tall columns and a readable monumental façade
+// A crooked record hall with tall columns and a readable monumental faÃ§ade
 box(1,2.1,-12,12,4.1,4.8,brick);
 box(1,4.4,-12,13,0.6,5.5,ochre);
 box(1,4.85,-12,11.5,.28,4.8,pale);
@@ -287,7 +284,7 @@ const enter=document.getElementById('enter');
 const solidZones = [
   {x:-8,z:5,rx:3.25,rz:2.9,name:'Ring House',text:'A rounded, hand-shaped clay building with a deep, dark entrance.'},
   {x:-16,z:-3,rx:1.55,rz:1.55,name:'Old Tower',text:'A narrow clay tower with a heavy cap and a dark inset window.'},
-  {x:1,z:-12,rx:5.8,rz:2.2,name:'Hall of Records',text:'The monumental Hall of Records; the façade hints at a much larger archive.'},
+  {x:1,z:-12,rx:5.8,rz:2.2,name:'Hall of Records',text:'The monumental Hall of Records; the faÃ§ade hints at a much larger archive.'},
   {x:22,z:13,rx:3.4,rz:3.0,name:'Hilltop Monument',text:'A strange stack of differently coloured clay forms.'}
 ];
 const hint = document.createElement('div');
@@ -310,7 +307,7 @@ document.addEventListener('keydown',e=>{
   if(['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code))e.preventDefault();
   if(e.code==='Space'&&player.grounded){player.vy=6.8;player.grounded=false;}
   if(e.code==='KeyE' && nearbyLandmark) {
-    hint.textContent = nearbyLandmark.name + ' — ' + nearbyLandmark.text;
+    hint.textContent = nearbyLandmark.name + ' â€” ' + nearbyLandmark.text;
     hint.style.display = 'block';
   }
 });
